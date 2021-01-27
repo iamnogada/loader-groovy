@@ -39,11 +39,12 @@ class TestRunner {
   public static NVPair[] headers = []
   public static NVPair[] params = []
   public static Cookie[] cookies = []
+  public static boolean bLog = false
 
     @BeforeProcess
   public static void beforeProcess() {
     HTTPPluginControl.getConnectionDefaults().timeout = 60000
-    test = new GTest(1, 'www.skgcvrd.kubepia.net')
+    test = new GTest(1, 'prod-universal')
     request = new HTTPRequest()
     grinder.logger.info('before process.')
   }
@@ -52,30 +53,72 @@ class TestRunner {
   public void beforeThread() {
     test.record(this, 'test')
     grinder.statistics.delayReports = true
+
+    	def json ='''
+    {
+      "mbrId" : "test" ,
+      "mbrPwd" : "1111"
+    }
+    '''
+    def threadContext = HTTPPluginControl.getThreadHTTPClientContext()
+    headers = [new NVPair('Content-type', 'application/json;charset=UTF-8')];
+    request.setHeaders(headers)
+    if(0 < cookies.size()) return 
+	  HTTPResponse result = request.POST('https://www.widtus.com/api/auth/login',json.getBytes(),headers)
+    cookies = CookieModule.listAllCookies(threadContext)
+    grinder.logger.info(cookies.toString())
     grinder.logger.info('before thread.')
+
   }
 
     @Before
   public void before() {
-    headers = new NVPair('Content-type', 'application/json;charset=UTF-8')
-    request.setHeaders(headers)
-    cookies.each { CookieModule.addCookie(it, HTTPPluginControl.getThreadHTTPClientContext()) }
+		def threadContext = HTTPPluginControl.getThreadHTTPClientContext()
+     cookies.each {
+    CookieModule.addCookie(it ,threadContext)
+    grinder.logger.info("{}", it)
+    }
     grinder.logger.info('before. init headers and cookies')
   }
 
     @Test
   public void test() {
     def json ='''
-    {
-      "mbrId" : "test31" ,
-      "mbrPwd" : "1q2w3e4r%T"
-    }
-    '''
+{
+    "user_input_value": {
+        "PP-BX3500": 6.91,
+        "PP-BH3820": 22.87,
+        "POE-Solumer-861": 30,
+        "Talc-Jetfine-3CA": 10.87,
+        "Add-GMS": 10.87
+    },
+    "input_value": [
+        {
+            "PP-BX3500": 8.48
+        },
+        {
+            "PP-BH3820": 28.05
+        },
+        {
+            "POE-Solumer-861": 36.8
+        },
+        {
+            "Talc-Jetfine-3CA": 13.33
+        },
+        {
+            "Add-GMS": 13.33
+        }
+    ],
+    "model_id": "m-201215141000111",
+    "model_path": "skgc/blobs/model/m-201215141000111/universalmodel.pickle",
+    "version": "V1"
+}
+		'''
     def threadContext = HTTPPluginControl.getThreadHTTPClientContext()
-    // HTTPResponse result = request.GET('http://www.skgcvrd.kubepia.net', params)
-    HTTPResponse result = request.POST('http://www.skgcvrd.kubepia.net/api/auth/login',json.getBytes(),headers)
-    cookies = CookieModule.listAllCookies(threadContext)
-    grinder.logger.info(cookies)
+    HTTPResponse result = request.POST('https://workspace.widtus.com/api/vrdlab/predict/models/m-201215141000111',json.getBytes(),headers)
+    // HTTPResponse result = request.POST('http://10.242.18.125/api/auth/login',json.getBytes(),headers)
+    // cookies = CookieModule.listAllCookies(threadContext)
+    // grinder.logger.info(cookies.toString())
     if (result.statusCode == 301 || result.statusCode == 302) {
       grinder.logger.warn('Warning. The response may not be correct. The response code was {}.', result.statusCode)
         } else {
